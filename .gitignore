@@ -13,4 +13,3 @@ sudoku.iml
 vcs.xml
 venv/
 sudoku.py
-sudoku-solver-internet.py
