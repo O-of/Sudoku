@@ -12,4 +12,6 @@ modules.xml
 sudoku.iml
 vcs.xml
 venv/
+
+# Other files
 sudoku.py
