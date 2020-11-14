@@ -10,6 +10,12 @@ class SudokuCellReturnValues(enum.Enum):
     MULTIPLE_VALUES: int = 2
 
 
+class SudokuBoardReturnValues(enum.Enum):
+    NO_SOLUTIONS: int = -1
+    UNKNOWN: int = 0
+    SOLVED: int = 1
+
+
 class SudokuCell(object):
     """
     A cell in a Sudoku Board
@@ -90,7 +96,18 @@ class SudokuBoard(object):
     """
 
     def __init__(self, inpt_board: str):
-        temp_board = inpt_board.split('\n')
+        self.input_board = inpt_board
+
+        self.board: List[List[SudokuCell]] = []
+        self.rows: List[SudokuSet] = []
+        self.columns: List[SudokuSet] = []
+        self.boxes: List[SudokuSet] = []
+
+        self.tree_node = None
+        self.multi_possibility_cells: List[SudokuCell] = []
+
+    def setup_internal_representation(self):
+        temp_board = self.input_board.split('\n')
 
         # Internal Representation of the board
         self.board: List[List[SudokuCell]] = [[] for _ in range(9)]
@@ -106,8 +123,19 @@ class SudokuBoard(object):
                 self.columns[column].add_square(cell)
                 self.boxes[cell.get_indexes()[2]].add_square(cell)
 
+    def del_internal_representation(self):
+        for sudoku_set in self.rows + self.columns + self.boxes:
+            sudoku_set.squares = []
+            sudoku_set.valid_numbers = set()
+        for row in range(len(self.board)):
+            self.board[row] = []
+        self.board = []
+        self.boxes = []
+        self.rows = []
+        self.columns = []
+
+    def del_tree_node(self):
         self.tree_node = None
-        self.multi_possibility_cells: List[SudokuCell] = []
 
     def set_tree_node(self, tree_node: 'SudokuTreeNode'):
         self.tree_node = tree_node
@@ -164,21 +192,25 @@ class SudokuBoard(object):
         row, column = cell_position
 
         for possibility in possibilities:
-            temp_board = SudokuBoard(self.get_str_rep_of_board())
+            str_temp_board = list(map(list, self.get_str_rep_of_board().split('\n')))
+            str_temp_board[row][column] = possibility
+
+            temp_board = SudokuBoard('\n'.join([''.join(map(str, row)) for row in str_temp_board]))
             temp_tree_node = SudokuTreeNode(temp_board, self.tree_node.depth + 1)
             temp_board.set_tree_node(temp_tree_node)
-            temp_tree_node.get_current_board().board[row][column].number = possibility
             yield temp_tree_node
 
-    def solve_board(self) -> None:
+    def solve_board(self):
         """
         Solves the board
+        0. Get initial baseline elimination along side setting stuff up
         1. While there are changes, continue trying to fill in obvious numbers
         2. Check to see if done
         3. If done, put it in solved boards array, stop
         4. If not done, call establish_child_tree_nodes and add that to the current node's child nodes
         5. For each child node call solve_board
         """
+        self.setup_internal_representation()
         for sudoku_set in self.rows + self.columns + self.boxes:
             sudoku_set.eliminate_numbers()
 
@@ -187,20 +219,24 @@ class SudokuBoard(object):
 
             result = self.do_one_iteration()
             if result == SudokuCellReturnValues.ZERO_VALUES:
-                return None
+                return SudokuBoardReturnValues.NO_SOLUTIONS
 
         board = self.get_str_rep_of_board()
 
         if '0' not in board:
             self.tree_node.solved_boards.append(board)
+            self.del_internal_representation()
+            return SudokuBoardReturnValues.SOLVED
         else:
             assert len(self.multi_possibility_cells) > 0
             for tree_node in self.establish_child_tree_nodes():
                 self.tree_node.child_boards.append(tree_node)
+
+            self.del_internal_representation()
+
             for tree_node in self.tree_node.child_boards:
                 tree_node.current_board.solve_board()
-
-        return None
+            return SudokuBoardReturnValues.UNKNOWN
 
 
 class SudokuTreeNode(object):
