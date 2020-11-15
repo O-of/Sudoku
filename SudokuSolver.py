@@ -112,6 +112,30 @@ class SudokuBoard(object):
         self.tree_node: Optional['SudokuTreeNode'] = None
         self.multi_possibility_cells: List[SudokuCell] = []
 
+    def get_rows(self):
+        """
+        Gets the rows
+        """
+        return self.rows
+
+    def get_columns(self):
+        """
+        Gets the columns
+        """
+        return self.columns
+
+    def get_boxes(self):
+        """
+        Gets the boxes
+        """
+        return self.boxes
+
+    def get_str_rep_of_board(self) -> str:
+        """
+        Converts board to a string
+        """
+        return '\n'.join([''.join(map(str, row)) for row in self.board])
+
     def setup_internal_representation(self):
         """
         Creates the internal representation of the board: setting the board, the rows, the columns, and the boxes 
@@ -131,6 +155,12 @@ class SudokuBoard(object):
                 self.rows[row].add_square(cell)
                 self.columns[column].add_square(cell)
                 self.boxes[cell.get_indexes()[2]].add_square(cell)
+
+    def set_tree_node(self, tree_node: 'SudokuTreeNode'):
+        """
+        Sets the tree node that this board is correlated to.
+        """
+        self.tree_node = tree_node
 
     def del_internal_representation(self):
         """
@@ -154,36 +184,6 @@ class SudokuBoard(object):
         Deletes the reference to the tree node that this board is correlated to.
         """
         self.tree_node = None
-
-    def set_tree_node(self, tree_node: 'SudokuTreeNode'):
-        """
-        Sets the tree node that this board is correlated to.
-        """
-        self.tree_node = tree_node
-
-    def get_str_rep_of_board(self) -> str:
-        """
-        Converts board to a string
-        """
-        return '\n'.join([''.join(map(str, row)) for row in self.board])
-
-    def get_rows(self):
-        """
-        Gets the rows
-        """
-        return self.rows
-
-    def get_columns(self):
-        """
-        Gets the columns
-        """
-        return self.columns
-
-    def get_boxes(self):
-        """
-        Gets the boxes
-        """
-        return self.boxes
 
     def do_one_iteration(self):
         """
@@ -296,6 +296,12 @@ class SudokuTreeNode(object):
 
         self.state = SudokuTreeNodeState.UNKNOWN
 
+    def get_current_board(self) -> SudokuBoard:
+        """
+        Gets the board associated with the node
+        """
+        return self.current_board
+
     def solve_board(self):
         """
         Solves the board correlated to the node
@@ -323,12 +329,6 @@ class SudokuTreeNode(object):
         for node in self.child_nodes:
             if node.state == SudokuTreeNodeState.NO_SOLUTIONS:
                 self.prune(node)
-
-    def get_current_board(self) -> SudokuBoard:
-        """
-        Gets the board associated with the node
-        """
-        return self.current_board
 
     def find_total_nodes(self) -> int:
         """
