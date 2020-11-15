@@ -113,6 +113,9 @@ class SudokuBoard(object):
         self.multi_possibility_cells: List[SudokuCell] = []
 
     def setup_internal_representation(self):
+        """
+        Creates the internal representation of the board: setting the board, the rows, the columns, and the boxes 
+        """
         temp_board = self.input_board.split('\n')
 
         # Internal Representation of the board
@@ -130,10 +133,16 @@ class SudokuBoard(object):
                 self.boxes[cell.get_indexes()[2]].add_square(cell)
 
     def del_internal_representation(self):
+        """
+        Deletes the internal representation to help with memory management and to kick in Python's garbage collection
+        """
         for sudoku_set in self.rows + self.columns + self.boxes:
             sudoku_set.squares = []
             sudoku_set.valid_numbers = set()
         for row in range(len(self.board)):
+            for cell in self.board[row]:
+                cell.master = None
+
             self.board[row] = []
         self.board = []
         self.boxes = []
@@ -141,21 +150,39 @@ class SudokuBoard(object):
         self.columns = []
 
     def del_tree_node(self):
+        """
+        Deletes the reference to the tree node that this board is correlated to.
+        """
         self.tree_node = None
 
     def set_tree_node(self, tree_node: 'SudokuTreeNode'):
+        """
+        Sets the tree node that this board is correlated to.
+        """
         self.tree_node = tree_node
 
     def get_str_rep_of_board(self) -> str:
+        """
+        Converts board to a string
+        """
         return '\n'.join([''.join(map(str, row)) for row in self.board])
 
     def get_rows(self):
+        """
+        Gets the rows
+        """
         return self.rows
 
     def get_columns(self):
+        """
+        Gets the columns
+        """
         return self.columns
 
     def get_boxes(self):
+        """
+        Gets the boxes
+        """
         return self.boxes
 
     def do_one_iteration(self):
@@ -270,6 +297,9 @@ class SudokuTreeNode(object):
         self.state = SudokuTreeNodeState.UNKNOWN
 
     def solve_board(self):
+        """
+        Solves the board correlated to the node
+        """
         result = self.current_board.solve_board()
         if result == SudokuBoardReturnValues.SOLVED:
             self.state = SudokuTreeNodeState.SOLVED
@@ -277,6 +307,10 @@ class SudokuTreeNode(object):
             self.state = SudokuTreeNodeState.NO_SOLUTIONS
 
     def solve_child_boards(self):
+        """
+        Solves all the child boards correlated to the node.
+        Helps with memory management by deleting nodes w/o solved boards
+        """
         for node in self.child_nodes:
             node.solve_board()
 
