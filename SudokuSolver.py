@@ -1,4 +1,4 @@
-from typing import Tuple, List, Iterator
+from typing import Tuple, List, Iterator, Optional
 import enum
 import time
 
@@ -11,6 +11,12 @@ class SudokuCellReturnValues(enum.Enum):
 
 
 class SudokuBoardReturnValues(enum.Enum):
+    NO_SOLUTIONS: int = -1
+    UNKNOWN: int = 0
+    SOLVED: int = 1
+
+
+class SudokuTreeNodeState(enum.Enum):
     NO_SOLUTIONS: int = -1
     UNKNOWN: int = 0
     SOLVED: int = 1
@@ -53,9 +59,9 @@ class SudokuCell(object):
         row_index, column_index, box_index = self.get_indexes()
 
         # Grabs the possible numbers
-        self.possible_numbers = set(range(1, 10)).intersection(self.master.rows[row_index].valid_numbers,
-                                                               self.master.columns[column_index].valid_numbers,
-                                                               self.master.boxes[box_index].valid_numbers)
+        self.possible_numbers = set(range(1, 10)).intersection(self.master.get_rows()[row_index].valid_numbers,
+                                                               self.master.get_columns()[column_index].valid_numbers,
+                                                               self.master.get_boxes()[box_index].valid_numbers)
 
         # Does logic on the result
         if len(self.possible_numbers) == 1:
@@ -103,7 +109,7 @@ class SudokuBoard(object):
         self.columns: List[SudokuSet] = []
         self.boxes: List[SudokuSet] = []
 
-        self.tree_node = None
+        self.tree_node: Optional['SudokuTreeNode'] = None
         self.multi_possibility_cells: List[SudokuCell] = []
 
     def setup_internal_representation(self):
@@ -142,6 +148,15 @@ class SudokuBoard(object):
 
     def get_str_rep_of_board(self) -> str:
         return '\n'.join([''.join(map(str, row)) for row in self.board])
+
+    def get_rows(self):
+        return self.rows
+
+    def get_columns(self):
+        return self.columns
+
+    def get_boxes(self):
+        return self.boxes
 
     def do_one_iteration(self):
         """
@@ -196,7 +211,7 @@ class SudokuBoard(object):
             str_temp_board[row][column] = possibility
 
             temp_board = SudokuBoard('\n'.join([''.join(map(str, row)) for row in str_temp_board]))
-            temp_tree_node = SudokuTreeNode(temp_board, self.tree_node.depth + 1)
+            temp_tree_node = SudokuTreeNode(temp_board, self.tree_node.depth + 1, self.tree_node)
             temp_board.set_tree_node(temp_tree_node)
             yield temp_tree_node
 
@@ -230,12 +245,11 @@ class SudokuBoard(object):
         else:
             assert len(self.multi_possibility_cells) > 0
             for tree_node in self.establish_child_tree_nodes():
-                self.tree_node.child_boards.append(tree_node)
+                self.tree_node.child_nodes.append(tree_node)
 
             self.del_internal_representation()
+            self.tree_node.solve_child_boards()
 
-            for tree_node in self.tree_node.child_boards:
-                tree_node.current_board.solve_board()
             return SudokuBoardReturnValues.UNKNOWN
 
 
@@ -246,11 +260,35 @@ class SudokuTreeNode(object):
 
     solved_boards = []
 
-    def __init__(self, board: SudokuBoard, depth: int):
-        self.child_boards: List[SudokuTreeNode] = []  # All the child boards
+    def __init__(self, board: SudokuBoard, depth: int, parent: 'SudokuTreeNode' = None):
+        self.child_nodes: List[SudokuTreeNode] = []  # All the child boards
         self.current_board: SudokuBoard = board  # The board associated with the node
         self.depth = depth  # The depth of the current node
-        self.orignal_board: str = board.get_str_rep_of_board()
+        self.original_board: str = board.get_str_rep_of_board()
+        self.parent = parent
+
+        self.state = SudokuTreeNodeState.UNKNOWN
+
+    def solve_board(self):
+        result = self.current_board.solve_board()
+        if result == SudokuBoardReturnValues.SOLVED:
+            self.state = SudokuTreeNodeState.SOLVED
+        elif result == SudokuBoardReturnValues.NO_SOLUTIONS:
+            self.state = SudokuTreeNodeState.NO_SOLUTIONS
+
+    def solve_child_boards(self):
+        for node in self.child_nodes:
+            node.solve_board()
+
+        if self.state == SudokuTreeNodeState.UNKNOWN:
+            self.state = SudokuTreeNodeState.NO_SOLUTIONS
+            for node in self.child_nodes:
+                if node == SudokuTreeNodeState.SOLVED:
+                    self.state = SudokuTreeNodeState.SOLVED
+
+        for node in self.child_nodes:
+            if node.state == SudokuTreeNodeState.NO_SOLUTIONS:
+                self.prune(node)
 
     def get_current_board(self) -> SudokuBoard:
         """
@@ -262,9 +300,17 @@ class SudokuTreeNode(object):
         """
         Travel function to determine how many nodes there are in total
         """
-        if len(self.child_boards) == 0:
+        if len(self.child_nodes) == 0:
             return 1
-        return sum([board.find_total_nodes() for board in self.child_boards]) + 1
+        return sum([board.find_total_nodes() for board in self.child_nodes]) + 1
+
+    def prune(self, node: 'SudokuTreeNode'):
+        for child_node in node.child_nodes:
+            node.prune(child_node)
+        self.child_nodes.pop(self.child_nodes.index(node))
+        node.child_nodes = []
+        node.current_board = None
+        node.parent = None
 
 
 class SudokuSolverApplication(object):
@@ -283,7 +329,7 @@ class SudokuSolverApplication(object):
         Solves the inputted board
         """
         start = time.time()
-        self.root_node.get_current_board().solve_board()
+        self.root_node.solve_board()
         self.time = time.time() - start
 
     def print_solutions(self):
@@ -298,7 +344,10 @@ class SudokuSolverApplication(object):
         for board in self.root_node.solved_boards:
             print(board + '\n')
 
-        print(f'There were a total of {self.root_node.find_total_nodes()} nodes in the tree')
+        if length == 1:
+            print(f'A total of {self.root_node.find_total_nodes() - 1} guesses were made')
+        else:
+            print(f'There were a total of {self.root_node.find_total_nodes()} nodes in the tree')
         print(f'It took {self.time} seconds to finish')
 
 
