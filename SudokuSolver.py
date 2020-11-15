@@ -1,4 +1,4 @@
-from typing import Tuple, List, Iterator, Optional
+from typing import Tuple, List, Iterator, Optional, Union
 import enum
 import time
 
@@ -31,7 +31,7 @@ class SudokuCell(object):
         self.number = number  # Number of the square - 0 if default
         self.master = master  # Parent Board
         self.position = position  # (row, column)
-        self.possible_numbers = set()  # Blank set for future use
+        self.possible_numbers: set = set()  # Blank set for future use
 
     def __str__(self):
         return str(self.number)
@@ -45,7 +45,7 @@ class SudokuCell(object):
 
         return row_index, column_index, box_index
 
-    def solve_this_cell(self):
+    def solve_this_cell(self) -> int:
         """
         Looks through the possible numbers the current cell can have; returns how many there are
         If 0: return 0
@@ -80,9 +80,9 @@ class SudokuSet(object):
 
     def __init__(self):
         self.squares: List[SudokuCell] = []  # All the squares in the current set
-        self.valid_numbers = set(range(1, 10))  # Set of valid numbers for future use
+        self.valid_numbers: set = set(range(1, 10))  # Set of valid numbers for future use
 
-    def eliminate_numbers(self):
+    def eliminate_numbers(self) -> None:
         """
         Goes through each square and takes them out of the possibilities
         """
@@ -112,19 +112,19 @@ class SudokuBoard(object):
         self.tree_node: Optional['SudokuTreeNode'] = None
         self.multi_possibility_cells: List[SudokuCell] = []
 
-    def get_rows(self):
+    def get_rows(self) -> List[SudokuSet]:
         """
         Gets the rows
         """
         return self.rows
 
-    def get_columns(self):
+    def get_columns(self) -> List[SudokuSet]:
         """
         Gets the columns
         """
         return self.columns
 
-    def get_boxes(self):
+    def get_boxes(self) -> List[SudokuSet]:
         """
         Gets the boxes
         """
@@ -136,7 +136,7 @@ class SudokuBoard(object):
         """
         return '\n'.join([''.join(map(str, row)) for row in self.board])
 
-    def setup_internal_representation(self):
+    def setup_internal_representation(self) -> None:
         """
         Creates the internal representation of the board: setting the board, the rows, the columns, and the boxes 
         """
@@ -156,13 +156,13 @@ class SudokuBoard(object):
                 self.columns[column].add_square(cell)
                 self.boxes[cell.get_indexes()[2]].add_square(cell)
 
-    def set_tree_node(self, tree_node: 'SudokuTreeNode'):
+    def set_tree_node(self, tree_node: 'SudokuTreeNode') -> None:
         """
         Sets the tree node that this board is correlated to.
         """
         self.tree_node = tree_node
 
-    def del_internal_representation(self):
+    def del_internal_representation(self) -> None:
         """
         Deletes the internal representation to help with memory management and to kick in Python's garbage collection
         """
@@ -179,13 +179,13 @@ class SudokuBoard(object):
         self.rows = []
         self.columns = []
 
-    def del_tree_node(self):
+    def del_tree_node(self) -> None:
         """
         Deletes the reference to the tree node that this board is correlated to.
         """
         self.tree_node = None
 
-    def do_one_iteration(self):
+    def do_one_iteration(self) -> Union[int, bool]:
         """
         Does one iteration out of the xx amount left
         1. clear old cached data
@@ -242,7 +242,7 @@ class SudokuBoard(object):
             temp_board.set_tree_node(temp_tree_node)
             yield temp_tree_node
 
-    def solve_board(self):
+    def solve_board(self) -> int:
         """
         Solves the board
         0. Get initial baseline elimination along side setting stuff up
@@ -294,7 +294,7 @@ class SudokuTreeNode(object):
         self.original_board: str = board.get_str_rep_of_board()
         self.parent = parent
 
-        self.state = SudokuTreeNodeState.UNKNOWN
+        self.state: int = SudokuTreeNodeState.UNKNOWN
 
     def get_current_board(self) -> SudokuBoard:
         """
@@ -302,7 +302,7 @@ class SudokuTreeNode(object):
         """
         return self.current_board
 
-    def solve_board(self):
+    def solve_board(self) -> None:
         """
         Solves the board correlated to the node
         """
@@ -312,7 +312,7 @@ class SudokuTreeNode(object):
         elif result == SudokuBoardReturnValues.NO_SOLUTIONS:
             self.state = SudokuTreeNodeState.NO_SOLUTIONS
 
-    def solve_child_boards(self):
+    def solve_child_boards(self) -> None:
         """
         Solves all the child boards correlated to the node.
         Helps with memory management by deleting nodes w/o solved boards
@@ -354,11 +354,11 @@ class SudokuSolverApplication(object):
 
     def __init__(self, inpt_board: str):
         temp_board = SudokuBoard(inpt_board)
-        self.root_node = SudokuTreeNode(temp_board, 0)  # The root node of the entire tree
+        self.root_node: SudokuTreeNode = SudokuTreeNode(temp_board, 0)  # The root node of the entire tree
         temp_board.set_tree_node(self.root_node)
-        self.time = 0  # Variable to store total time
+        self.time: int = 0  # Variable to store total time
 
-    def solve(self):
+    def solve(self) -> None:
         """
         Solves the inputted board
         """
@@ -366,7 +366,7 @@ class SudokuSolverApplication(object):
         self.root_node.solve_board()
         self.time = time.time() - start
 
-    def print_solutions(self):
+    def print_solutions(self) -> None:
         """
         Prints the boards and some extra statistics
         """
